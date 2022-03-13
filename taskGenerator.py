@@ -5,6 +5,9 @@ Created on Thu Jun  6 18:45:42 2019
 @email: sudharsan.vaidhun@knights.ucf.edu
 """
 
+import numpy.random as random
+from numpy import ceil
+
 class TaskSet(dict):
     def __init__(self) -> None:
         self.numOfTasks = 0
@@ -26,11 +29,15 @@ class TaskSet(dict):
             raise Exception('Error!')
     
     def listTasks(self) -> None:
-        print("| Index | WCET (LO) | WCET (HI) | Period | Deadline | Util. (LO) | Util. (HI) |")
-        print("-------------------------------------------------------------------------------")
+        print("| Index | WCET (LO) | WCET (HI) | Period | Deadline | Util. (LO) | Util. (HI) |  X |")
+        print("-----------------------------------------------------------------------------------")
         for taskIndex, task in self.items():
-            print("| {:5d} | {:9d} | {:9d} | {:6d} | {:8d} | {:10.3f} | {:10.3f} |".format(taskIndex, task.wcetLO, task.wcetHI, task.period, task.deadline, task.utilizationLO, task.utilizationHI))
-        print("-------------------------------------------------------------------------------")
+            print("| {:5d} | {:9.3f} | {:9.3f} | {:6d} | {:8d} | {:10.3f} | {:10.3f} | {:} |".format(
+                taskIndex, task.wcetLO, task.wcetHI,
+                task.period, task.deadline,
+                task.utilizationLO, task.utilizationHI,
+                task.criticality))
+        print("-----------------------------------------------------------------------------------")
 
 
 class Task():
@@ -49,14 +56,41 @@ class Task():
 
 
 class TaskGen:
-    def __init__(self) -> None:
-        pass
-
-    def genTask(self, method='Uunifast') -> TaskSet:
+    def genTask(self, method='Uunifast', **kwargs) -> TaskSet:
         if method=='Uunifast':
-            return self._genTaskUunifast()
+            try:
+                numOfTasks = kwargs['numOfTasks']
+                totalUtilization = kwargs['totalUtilization']
+                critProb = kwargs['critProb']
+                wcetRatio = kwargs['wcetRatio']
+                minDeadlineRatio = kwargs['minDeadlineRatio']
+            except KeyError:
+                print("'Uunifast' method requires numOfTasks, totalUtilization as parameters.")
+                exit()
+            Task.counter = 0
+            return self._genTaskUunifast(numOfTasks, totalUtilization, critProb, wcetRatio, minDeadlineRatio)
     
-    def _genTaskUunifast(self) -> TaskSet:
+    def _genTaskUunifast(self, numOfTasks, totalUtilization, critProb, wcetRatio, minDeadlineRatio) -> TaskSet:
         taskSet = TaskSet()
-        taskSet.addTask(Task())
+        utilList = self._getUtilizationsUunifast(numOfTasks, totalUtilization)
+        for util in utilList:
+            period = random.randint(10, 1000)
+            wcetHI = util*period
+            taskSet.addTask(Task(
+                wcetLO = random.rand()*wcetHI/wcetRatio,
+                wcetHI = wcetHI,
+                period = period,
+                deadline = int(ceil((1-(1-minDeadlineRatio)*random.rand())*period)),
+                criticality = 'HI' if random.rand()>critProb else 'LO',
+                rate=1))
         return taskSet
+
+    def _getUtilizationsUunifast(self, numOfTasks, totalUtilization) -> list:
+        uList = list()
+        tempUtil = totalUtilization
+        for i in range(numOfTasks-1):
+            nextUtil = tempUtil*random.rand()**(1/(numOfTasks-i))
+            uList.append(tempUtil - nextUtil)
+            tempUtil = nextUtil
+        uList.append(tempUtil)
+        return uList

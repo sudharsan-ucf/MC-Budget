@@ -9,11 +9,11 @@ try:
 except FileNotFoundError:
     config = None
 
-T1 = TaskSet()
-
-T1.addTask(Task(2, 2, 10, 10, 'LO', 0.9))
-T1.addTask(Task(4, 5, 10, 6, 'HI'))
-T1.listTasks()
-
-S1 = SchedulabilityTest(T1, 60, 60, 60, config)
-S1.solve()
+taskSet = TaskGen().genTask('Uunifast',
+        numOfTasks=10,
+        totalUtilization=0.9,
+        critProb = 0.5,
+        wcetRatio = 2,
+        minDeadlineRatio = 0.7)
+taskSet.listTasks()
+SchedulabilityTest(taskSet, 60, 60, 60, config).solve()
