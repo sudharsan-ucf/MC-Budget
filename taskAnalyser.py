@@ -177,12 +177,15 @@ class SchedulabilityTest():
             if self.VERBOSE:
                 print('Schedulable with deadline scaling factor {}'.format(self.scalingFactor))
         except FailureException as e:
+            self.scalingFactor = -1
             if self.VERBOSE:
                 print(e)
         except RateException as e:
+            self.scalingFactor = -2
             if self.VERBOSE:
                 print(e)
         except EpsilonException as e:
+            self.scalingFactor = -3
             if self.VERBOSE:
                 print(e)
         
@@ -194,14 +197,14 @@ class SchedulabilityTest():
     
     def _calcL(self):
         c1 = self.taskSet.totalUtilization_LO_LO
-        c2 = self.taskSet.totalUtilization_HI_LO
+        c2 = self.taskSet.totalUtilization_LO_HI
         c3 = sum(task.r*task.wcetLO/task.period for task in self.taskSet.values() if task.criticality=='LO')
         c4 = self.taskSet.totalUtilization_HI_HI
         
         if c1 + c2 < self.wN:
             num = 0
-            num += c1*max(task.period - task.deadline  for task in self.taskSet.values() if task.criticality == 'LO')
-            num += c2*max(task.period - task.deadlineV for task in self.taskSet.values() if task.criticality == 'HI')
+            num += c1*max([task.period - task.deadline  for task in self.taskSet.values() if task.criticality == 'LO'], default=0)
+            num += c2*max([task.period - task.deadlineV for task in self.taskSet.values() if task.criticality == 'HI'], default=0)
             num += 2*self.wN*(self.pi - self.thetaN)
             den = self.wN - c1 - c2
             self.lA = int(ceil(num/den))
@@ -212,8 +215,8 @@ class SchedulabilityTest():
         
         if c3 + c4 < self.wN:
             num = 0
-            num += c3*max(task.period - task.deadline + task.period/task.r for task in self.taskSet.values() if task.criticality == 'LO')
-            num += c4*max(task.period - (task.deadline - task.deadlineV) for task in self.taskSet.values() if task.criticality == 'HI')
+            num += c3*max([task.period - task.deadline + task.period/task.r for task in self.taskSet.values() if task.criticality == 'LO'], default=0)
+            num += c4*max([task.period - (task.deadline - task.deadlineV) for task in self.taskSet.values() if task.criticality == 'HI'], default=0)
             num += 2*self.wN*(self.pi - self.thetaN)
             den = self.wN - c3 - c4
             self.lB = int(ceil(num/den))
@@ -224,8 +227,8 @@ class SchedulabilityTest():
         
         if c2 + c3 < self.wN:
             num = 0
-            num += c2*max(task.period - task.deadlineV for task in self.taskSet.values() if task.criticality == 'HI')
-            num += c3*max(task.period - task.deadline + task.period/task.r for task in self.taskSet.values() if task.criticality == 'LO')
+            num += c2*max([task.period - task.deadlineV for task in self.taskSet.values() if task.criticality == 'HI'], default=0)
+            num += c3*max([task.period - task.deadline + task.period/task.r for task in self.taskSet.values() if task.criticality == 'LO'], default=0)
             num += 2*self.wC*(self.pi - self.thetaC)
             den = self.wC - c2 - c3
             self.lC = int(ceil(num/den))
@@ -236,7 +239,7 @@ class SchedulabilityTest():
         
         if c3 < self.wC:
             num = 0
-            num += c3*max(task.period - task.deadline + task.period/task.r for task in self.taskSet.values() if task.criticality == 'LO')
+            num += c3*max([task.period - task.deadline + task.period/task.r for task in self.taskSet.values() if task.criticality == 'LO'], default=0)
             num += 2*self.wC*(self.pi - self.thetaC)
             den = self.wC - c3
             self.lD = int(ceil(num/den))
@@ -358,11 +361,11 @@ class SchedulabilityTest():
 
             if cndnA and cndnB and cndnC and cndnD:
                 return x
-            elif cndnA and not cndnB and cndnC and not cndnD:
+            elif cndnA and cndnC and (not cndnB or not cndnD):
                 x -= delta
-            elif not cndnA and cndnB and not cndnC and cndnD:
+            elif (not cndnA or not cndnC) and cndnB and cndnD:
                 x += delta
-            elif cndnA and not cndnB and not cndnC and cndnD:
+            elif cndnA and (not cndnB or not cndnC) and cndnD:
                 raise RateException('Failed to find x: \{r_i\} values maybe unsuitable.')
             else:
                 raise FailureException('x not found')
