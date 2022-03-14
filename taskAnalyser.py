@@ -156,24 +156,21 @@ class QPA():
 class SchedulabilityTest():
     DEBUG = False
     VERBOSE = False
-    def __init__(self, taskSet, thetaN=None, thetaC=None, resourcePeriod=None, config=None):
-        if config is not None:
-            SchedulabilityTest.DEBUG = config['DEBUG']
-            SchedulabilityTest.VERBOSE = config['VERBOSE']
-            self.pi = config['pi']
-            self.thetaN = config['thetaN']
-            self.thetaC = config['thetaC']
+    def __init__(self, taskSet, thetaN, thetaC, resourcePeriod, config=None):
+        SchedulabilityTest.DEBUG = config['DEBUG']
+        SchedulabilityTest.VERBOSE = config['VERBOSE']
         self.pi = resourcePeriod
         self.thetaN = thetaN
         self.thetaC = thetaC
         self.wN = thetaN/resourcePeriod
         self.wC = thetaC/resourcePeriod
         self.taskSet = taskSet
+        self.epsilon = config['epsilon']
 
 
     def solve(self):
         try:
-            self.scalingFactor = self._calcDeadlineV()
+            self.scalingFactor = self._calcDeadlineV(self.epsilon)
             if self.VERBOSE:
                 print('Schedulable with deadline scaling factor {}'.format(self.scalingFactor))
         except FailureException as e:
@@ -190,10 +187,13 @@ class SchedulabilityTest():
                 print(e)
         
         if self.DEBUG:
-            self._plot_cndnX(self._data_cndnA, 'Condition A')
-            self._plot_cndnX(self._data_cndnB, 'Condition B')
-            self._plot_cndnX(self._data_cndnC, 'Condition C')
-            self._plot_cndnX(self._data_cndnD, 'Condition D')
+            try:
+                self._plot_cndnX(self._data_cndnA, 'Condition A')
+                self._plot_cndnX(self._data_cndnB, 'Condition B')
+                self._plot_cndnX(self._data_cndnC, 'Condition C')
+                self._plot_cndnX(self._data_cndnD, 'Condition D')
+            except AttributeError:
+                pass
     
     def _calcL(self):
         c1 = self.taskSet.totalUtilization_LO_LO
@@ -339,11 +339,17 @@ class SchedulabilityTest():
     
     def _sbf_Rn(self, delta):
         epsilon = max(0, delta-2*(self.pi - self.thetaN)-self.pi*floor((delta - (self.pi - self.thetaN))/self.pi))
-        return floor((delta - (self.pi - self.thetaN))/self.pi)*self.thetaN + epsilon
+        if delta <= (2*(self.pi - self.thetaN)):
+            return 0
+        else:
+            return floor((delta - (self.pi - self.thetaN))/self.pi)*self.thetaN + epsilon
 
     def _sbf_Rc(self, delta):
         epsilon = max(0, delta-2*(self.pi - self.thetaC)-self.pi*floor((delta - (self.pi - self.thetaC))/self.pi))
-        return floor((delta - (self.pi - self.thetaC))/self.pi)*self.thetaC + epsilon
+        if delta <= (2*(self.pi - self.thetaC)):
+            return 0
+        else:
+            return floor((delta - (self.pi - self.thetaC))/self.pi)*self.thetaC + epsilon
     
     def _calcDeadlineV(self, epsilon = 1E-2):
         delta = 0.5

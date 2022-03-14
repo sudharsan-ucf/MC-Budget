@@ -30,14 +30,14 @@ class TaskSet(dict):
     
     def listTasks(self) -> None:
         print("| Index | WCET (LO) | WCET (HI) | Period | Deadline | Util. (LO) | Util. (HI) |  X |")
-        print("-----------------------------------------------------------------------------------")
+        print("------------------------------------------------------------------------------------")
         for taskIndex, task in self.items():
             print("| {:5d} | {:9.3f} | {:9.3f} | {:6d} | {:8d} | {:10.3f} | {:10.3f} | {:} |".format(
                 taskIndex, task.wcetLO, task.wcetHI,
                 task.period, task.deadline,
                 task.utilizationLO, task.utilizationHI,
                 task.criticality))
-        print("-----------------------------------------------------------------------------------")
+        print("------------------------------------------------------------------------------------")
 
 
 class Task():
@@ -64,13 +64,21 @@ class TaskGen:
                 critProb = kwargs['critProb']
                 wcetRatio = kwargs['wcetRatio']
                 minDeadlineRatio = kwargs['minDeadlineRatio']
+                if 'minRate' in kwargs.keys():
+                    minRate = kwargs['minRate']
+                else:
+                    minRate = 0
+                if 'maxRate' in kwargs.keys():
+                    maxRate = kwargs['maxRate']
+                else:
+                    maxRate = 1
             except KeyError:
                 print("'Uunifast' method requires numOfTasks, totalUtilization as parameters.")
                 exit()
             Task.counter = 0
-            return self._genTaskUunifast(numOfTasks, totalUtilization, critProb, wcetRatio, minDeadlineRatio)
+            return self._genTaskUunifast(numOfTasks, totalUtilization, critProb, wcetRatio, minDeadlineRatio, minRate, maxRate)
     
-    def _genTaskUunifast(self, numOfTasks, totalUtilization, critProb, wcetRatio, minDeadlineRatio) -> TaskSet:
+    def _genTaskUunifast(self, numOfTasks, totalUtilization, critProb, wcetRatio, minDeadlineRatio, minRate=0, maxRate=1) -> TaskSet:
         taskSet = TaskSet()
         utilList = self._getUtilizationsUunifast(numOfTasks, totalUtilization)
         for util in utilList:
@@ -82,7 +90,8 @@ class TaskGen:
                 period = period,
                 deadline = int(ceil((1-(1-minDeadlineRatio)*random.rand())*period)),
                 criticality = 'HI' if random.rand()>critProb else 'LO',
-                rate=1))
+                rate=((maxRate-minRate)*random.rand())+minRate
+                ))
         return taskSet
 
     def _getUtilizationsUunifast(self, numOfTasks, totalUtilization) -> list:
