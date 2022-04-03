@@ -1,6 +1,5 @@
 from math import floor, ceil
 from math import fmod as mod
-from signal import raise_signal
 
 from matplotlib import pyplot as plt
 
