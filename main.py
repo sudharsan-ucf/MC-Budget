@@ -1,10 +1,13 @@
 import itertools
 import json
+import pickle
+import datetime
 
 from numpy import random
 
 from taskGenerator import TaskSet, Task, TaskGen
 from taskAnalyser import SchedulabilityTest
+from plotter import Logger
 
 try:
     with open('sim.cfg', 'r') as fh:
@@ -30,31 +33,62 @@ except FileNotFoundError:
     minBudgetUtils = [1.0]
     resourcePeriods = [100]
 
-for totalUtilization, iter, critProb, wcetRatio, minDeadlineRatio, minThetaRatio, minBudgetUtil, resourcePeriod in itertools.product(
-    totalUtilizations, iterations, critProbs, wcetRatios, minDeadlineRatios, minThetaRatios, minBudgetUtils, resourcePeriods):
+def dumpData(log):
+    with open(datetime.datetime.strftime(datetime.datetime.now(), 'log_%Y_%m_%d_%H_%M_%S_%f.pkl'), 'wb') as fh:
+        pickle.dump(log, fh)
+    return Logger()
 
-    taskSet = TaskGen().genTask('Uunifast',
-            numOfTasks=numOfTasks,
+log = Logger()
+try:
+    counter = 0
+    for totalUtilization, iter, critProb, wcetRatio, minDeadlineRatio, minThetaRatio, minBudgetUtil, resourcePeriod in itertools.product(
+        totalUtilizations, iterations, critProbs, wcetRatios, minDeadlineRatios, minThetaRatios, minBudgetUtils, resourcePeriods):
+
+        taskSet = TaskGen().genTask('Uunifast',
+                numOfTasks=numOfTasks,
+                totalUtilization=totalUtilization,
+                critProb = critProb,
+                wcetRatio = wcetRatio,
+                minDeadlineRatio = minDeadlineRatio)
+        
+        # if config['VERBOSE']:
+        #     taskSet.listTasks()
+
+        thetaC = (1-random.rand()*(1-minBudgetUtil))*resourcePeriod
+        thetaN = (1-random.rand()*(1-minThetaRatio))*thetaC
+        
+        solver = SchedulabilityTest(taskSet, thetaN, thetaC, resourcePeriod, config)
+        solver.solve()
+        if solver.scalingFactor == -1:
+            printFormat = 'U = {:5.3f} | #{:3d} | P = {:4.2f} | R = {:5.2f} | D = {:4.2f} | x = ----- <<< Fail!'
+        elif solver.scalingFactor == -2:
+            printFormat = 'U = {:5.3f} | #{:3d} | P = {:4.2f} | R = {:5.2f} | D = {:4.2f} | x = ----- <<< Fail! Infeasible rates'
+        elif solver.scalingFactor == -3:
+            printFormat = 'U = {:5.3f} | #{:3d} | P = {:4.2f} | R = {:5.2f} | D = {:4.2f} | x = ----- <<< Fail! Decrease epsilon'
+        else:
+            printFormat = 'U = {:5.3f} | #{:3d} | P = {:4.2f} | R = {:5.2f} | D = {:4.2f} | x = {:5.3f}'
+        
+        print(printFormat.format(totalUtilization, iter, critProb, wcetRatio, minDeadlineRatio, solver.scalingFactor))
+        log.addLog(
             totalUtilization=totalUtilization,
-            critProb = critProb,
-            wcetRatio = wcetRatio,
-            minDeadlineRatio = minDeadlineRatio)
-    
-    # if config['VERBOSE']:
-    #     taskSet.listTasks()
+            iteration=iter,
+            critProb=critProb,
+            wcetRatio=wcetRatio,
+            minDeadlineRatio=minDeadlineRatio,
+            minThetaRatio=minThetaRatio,
+            minBudgetUtil=minBudgetUtil,
+            resourcePeriod=resourcePeriod,
+            thetaC=thetaC,
+            thetaN=thetaN,
+            taskSet=taskSet,
+            solver=solver
+            )
+        
+        counter += 1
+        if counter>=10000:
+            counter = 0
+            log = dumpData(log)
+except:
+    log = dumpData(log)
 
-    thetaC = (1-random.rand()*(1-minBudgetUtil))*resourcePeriod
-    thetaN = (1-random.rand()*(1-minThetaRatio))*thetaC
-    
-    solver = SchedulabilityTest(taskSet, thetaN, thetaC, resourcePeriod, config)
-    solver.solve()
-    if solver.scalingFactor == -1:
-        printFormat = 'U = {:5.3f} | #{:3d} | P = {:4.2f} | R = {:5.2f} | D = {:4.2f} | x = ----- <<< Fail!'
-    elif solver.scalingFactor == -2:
-        printFormat = 'U = {:5.3f} | #{:3d} | P = {:4.2f} | R = {:5.2f} | D = {:4.2f} | x = ----- <<< Fail! Infeasible rates'
-    elif solver.scalingFactor == -3:
-        printFormat = 'U = {:5.3f} | #{:3d} | P = {:4.2f} | R = {:5.2f} | D = {:4.2f} | x = ----- <<< Fail! Decrease epsilon'
-    else:
-        printFormat = 'U = {:5.3f} | #{:3d} | P = {:4.2f} | R = {:5.2f} | D = {:4.2f} | x = {:5.3f}'
-    
-    print(printFormat.format(totalUtilization, iter, critProb, wcetRatio, minDeadlineRatio, solver.scalingFactor))
+log = dumpData(log)
