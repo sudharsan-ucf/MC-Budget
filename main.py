@@ -1,11 +1,9 @@
 import itertools
 import json
-import pickle
-import datetime
 
 from numpy import random
 
-from taskGenerator import TaskSet, Task, TaskGen
+from taskGenerator import TaskGen
 from taskAnalyser import SchedulabilityTest
 from plotter import Logger
 
@@ -33,10 +31,6 @@ except FileNotFoundError:
     minBudgetUtils = [1.0]
     resourcePeriods = [100]
 
-def dumpData(log):
-    with open(datetime.datetime.strftime(datetime.datetime.now(), 'log_%Y_%m_%d_%H_%M_%S_%f.pkl'), 'wb') as fh:
-        pickle.dump(log, fh)
-    return Logger()
 
 log = Logger()
 try:
@@ -51,9 +45,6 @@ try:
                 wcetRatio = wcetRatio,
                 minDeadlineRatio = minDeadlineRatio)
         
-        # if config['VERBOSE']:
-        #     taskSet.listTasks()
-
         thetaC = (1-random.rand()*(1-minBudgetUtil))*resourcePeriod
         thetaN = (1-random.rand()*(1-minThetaRatio))*thetaC
         
@@ -87,8 +78,8 @@ try:
         counter += 1
         if counter>=10000:
             counter = 0
-            log = dumpData(log)
+            log.dumpData()
 except:
-    log = dumpData(log)
+    log.dumpData()
 
-log = dumpData(log)
+log.dumpData()
