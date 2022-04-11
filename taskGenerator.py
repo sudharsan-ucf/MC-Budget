@@ -63,34 +63,27 @@ class TaskGen:
                 totalUtilization = kwargs['totalUtilization']
                 critProb = kwargs['critProb']
                 wcetRatio = kwargs['wcetRatio']
-                minDeadlineRatio = kwargs['minDeadlineRatio']
-                if 'minRate' in kwargs.keys():
-                    minRate = kwargs['minRate']
-                else:
-                    minRate = 0
-                if 'maxRate' in kwargs.keys():
-                    maxRate = kwargs['maxRate']
-                else:
-                    maxRate = 1
+                deadlineRatio = kwargs['deadlineRatio']
+                rate = kwargs['rate']
             except KeyError:
                 print("'Uunifast' method requires numOfTasks, totalUtilization as parameters.")
                 exit()
             Task.counter = 0
-            return self._genTaskUunifast(numOfTasks, totalUtilization, critProb, wcetRatio, minDeadlineRatio, minRate, maxRate)
+            return self._genTaskUunifast(numOfTasks, totalUtilization, critProb, wcetRatio, deadlineRatio, rate)
     
-    def _genTaskUunifast(self, numOfTasks, totalUtilization, critProb, wcetRatio, minDeadlineRatio, minRate=0, maxRate=1) -> TaskSet:
+    def _genTaskUunifast(self, numOfTasks, totalUtilization, critProb, wcetRatio, deadlineRatio, rate) -> TaskSet:
         taskSet = TaskSet()
         utilList = self._getUtilizationsUunifast(numOfTasks, totalUtilization)
         for util in utilList:
-            period = random.randint(10, 1000)
-            wcetHI = util*period
+            period = random.randint(100, 1000)
+            wcetHI = int(ceil(util*period))
             taskSet.addTask(Task(
-                wcetLO = random.rand()*wcetHI/wcetRatio,
+                wcetLO = int(ceil(wcetHI/wcetRatio)),
                 wcetHI = wcetHI,
                 period = period,
-                deadline = int(ceil((1-(1-minDeadlineRatio)*random.rand())*period)),
+                deadline = int(deadlineRatio*period),
                 criticality = 'HI' if random.rand()>critProb else 'LO',
-                rate=((maxRate-minRate)*random.rand())+minRate
+                rate=rate
                 ))
         return taskSet
 
