@@ -205,8 +205,8 @@ class SchedulabilityTest():
         c3 = sum(task.r*task.wcetLO/task.period for task in self.taskSet.values() if task.criticality=='LO')
         c4 = self.taskSet.totalUtilization_HI_HI
         
-        # if c1 + c2 < self.wN:
-        if precisionLimit < abs(self.wN - (c1 + c2)):
+        if c1 + c2 < self.wN:
+        # if precisionLimit < abs(self.wN - (c1 + c2)):
             num = 0
             num += c1*max([task.period - task.deadline  for task in self.taskSet.values() if task.criticality == 'LO'], default=0)
             num += c2*max([task.period - task.deadlineV for task in self.taskSet.values() if task.criticality == 'HI'], default=0)
@@ -218,8 +218,8 @@ class SchedulabilityTest():
                 print("The condition 'c1 + c2 < wn' is not satisfied!")
             raise FailureException('Failed while calculating l_max for Condition A')
         
-        # if c3 + c4 < self.wN:
-        if precisionLimit < abs(self.wN - (c3 + c4)):
+        if c3 + c4 < self.wN:
+        # if precisionLimit < abs(self.wN - (c3 + c4)):
             num = 0
             num += c3*max([task.period - task.deadline + task.period/task.r for task in self.taskSet.values() if task.criticality == 'LO'], default=0)
             num += c4*max([task.period - (task.deadline - task.deadlineV) for task in self.taskSet.values() if task.criticality == 'HI'], default=0)
@@ -231,8 +231,8 @@ class SchedulabilityTest():
                 print("The condition 'c3 + c4 < wn' is not satisfied!")
             raise FailureException('Failed while calculating l_max for Condition B')
         
-        # if c2 + c3 < self.wN:
-        if precisionLimit < abs(self.wN - (c2 + c3)):
+        if c2 + c3 < self.wN:
+        # if precisionLimit < abs(self.wN - (c2 + c3)):
             num = 0
             num += c2*max([task.period - task.deadlineV for task in self.taskSet.values() if task.criticality == 'HI'], default=0)
             num += c3*max([task.period - task.deadline + task.period/task.r for task in self.taskSet.values() if task.criticality == 'LO'], default=0)
@@ -244,8 +244,8 @@ class SchedulabilityTest():
                 print("The condition 'c2 + c3 < wc' is not satisfied!")
             raise FailureException('Failed while calculating l_max for Condition C')
         
-        # if c3 < self.wC:
-        if precisionLimit < abs(self.wC - (c3)):
+        if c3 < self.wC:
+        # if precisionLimit < abs(self.wC - (c3)):
             num = 0
             num += c3*max([task.period - task.deadline + task.period/task.r for task in self.taskSet.values() if task.criticality == 'LO'], default=0)
             num += 2*self.wC*(self.pi - self.thetaC)
@@ -388,7 +388,7 @@ class SchedulabilityTest():
         else:
             return floor((delta - (self.pi - self.thetaC))/self.pi)*self.thetaC + epsilon
 
-    def _sbf_Rn_Inv(self, supply):
+    def _Old_sbf_Rn_Inv(self, supply):
         if supply == 0:
             return 2*(self.pi - self.thetaN)
         else:
@@ -398,7 +398,7 @@ class SchedulabilityTest():
                 epsilon = 0
             return (self.pi - self.thetaN) + self.pi * floor(supply/self.thetaN) + epsilon
 
-    def _sbf_Rc_Inv(self, supply):
+    def _Old_sbf_Rc_Inv(self, supply):
         if supply == 0:
             return 2*(self.pi - self.thetaC)
         else:
@@ -407,6 +407,20 @@ class SchedulabilityTest():
             else:
                 epsilon = 0
             return (self.pi - self.thetaC) + self.pi * floor(supply/self.thetaC) + epsilon
+    
+    def _sbf_Rn_Inv(self, supply):
+        if (supply-self.thetaN*floor(supply/self.thetaN)) > 0:
+            epsilonT = self.pi - self.thetaN + supply - self.thetaN*floor(supply/self.thetaN)
+        else:
+            epsilonT = 0
+        return (self.pi - self.thetaN) + self.pi*floor(supply/self.thetaN) + epsilonT
+
+    def _sbf_Rc_Inv(self, supply):
+        if (supply-self.thetaC*floor(supply/self.thetaC)) > 0:
+            epsilonT = self.pi - self.thetaC + supply - self.thetaC*floor(supply/self.thetaC)
+        else:
+            epsilonT = 0
+        return (self.pi - self.thetaC) + self.pi*floor(supply/self.thetaC) + epsilonT
     
     def _calcDeadlineV(self, epsilon = 1E-2):
         delta = 0.5

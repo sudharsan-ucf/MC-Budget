@@ -1,14 +1,23 @@
 import itertools
 import json
-
+import sys
+import os
+import pickle
+import datetime
 from numpy import random
 
 from taskGenerator import TaskGen
 from taskAnalyser import SchedulabilityTest
-from plotter import Logger
+# from plotter import Logger
+
+defaultConfigFileName = 'sim.cfg'
+if len(sys.argv) > 1:
+    configFileName = sys.argv[1]
+else:
+    configFileName = defaultConfigFileName
 
 try:
-    with open('sim.cfg', 'r') as fh:
+    with open(configFileName, 'r') as fh:
         config = json.load(fh)
         minThetaRatios = config['minThetaRatios']
         minBudgetUtils = config['minBudgetUtils']
@@ -21,19 +30,37 @@ try:
         iterations = range(config['numOfIterations'])
         numOfTasks = config['numOfTasks']
 except FileNotFoundError:
-    config = None
+    config = dict()
+    config['DEBUG'] = False
+    config['VERBOSE'] = False
+    config['epsilon'] = 1E-6
     minThetaRatios = [1.0]
     minBudgetUtils = [1.0]
     resourcePeriods = [100]
     critProbs = [0.5]
-    minWcetRatios = [2,3]
+    minWcetRatios = [1]
     minRates = [0.1]
-    minDeadlineRatios = [0.7, 0.8]
-    totalUtilizations = [0.1, 0.3, 0.5, 0.7]
-    iterations = range(10)
-    numOfTasks = 10
+    minDeadlineRatios = [0.8]
+    totalUtilizations = [0.8]
+    iterations = range(25)
+    numOfTasks = 2
 
-log = Logger()
+class Logger(list):
+    def __init__(self, logFolderName):
+        self.dirPathLog = os.path.join(os.getcwd(), logFolderName)
+        if not os.path.isdir(self.dirPathLog):
+            os.mkdir(self.dirPathLog)
+
+    def addLog(self, **kwargs):
+        self.append(kwargs)
+    
+    def dumpData(self):
+        print('Writing data ...')
+        filePathLog = os.path.join(self.dirPathLog, datetime.datetime.strftime(datetime.datetime.now(), 'log_%Y_%m_%d_%H_%M_%S_%f.pkl'))
+        with open(filePathLog, 'wb') as fh:
+            pickle.dump(self, fh)
+
+log = Logger(config['logFolder'])
 try:
     counter = 0
     for totalUtilization, iter, critProb, minWcetRatio, minDeadlineRatio, minThetaRatio, minBudgetUtil, resourcePeriod, minRate in itertools.product(
@@ -44,7 +71,7 @@ try:
         rate = minRate
         deadlineRatio = minDeadlineRatio
 
-        taskSet = TaskGen().genTask('Uunifast',
+        taskSet = TaskGen().genTask('Iterative',
                 numOfTasks=numOfTasks,
                 totalUtilization=totalUtilization,
                 critProb = critProb,
@@ -96,7 +123,7 @@ try:
             counter = 0
             log.dumpData()
             del log
-            log = Logger()
+            log = Logger(config['logFolder'])
 
 except Exception as e:
     print('Error', e)

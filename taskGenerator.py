@@ -6,7 +6,7 @@ Created on Thu Jun  6 18:45:42 2019
 """
 
 import numpy.random as random
-from numpy import ceil
+from numpy import ceil, average
 
 class TaskSet(dict):
     def __init__(self) -> None:
@@ -56,7 +56,8 @@ class Task():
 
 
 class TaskGen:
-    def genTask(self, method='Uunifast', **kwargs) -> TaskSet:
+    def genTask(self, method='Iterative', **kwargs) -> TaskSet:
+
         if method=='Uunifast':
             try:
                 numOfTasks = kwargs['numOfTasks']
@@ -70,6 +71,23 @@ class TaskGen:
                 exit()
             Task.counter = 0
             return self._genTaskUunifast(numOfTasks, totalUtilization, critProb, wcetRatio, deadlineRatio, rate)
+
+        if method=='Iterative':
+            try:
+                numOfTasks = kwargs['numOfTasks']
+                totalUtilization = kwargs['totalUtilization']
+                critProb = kwargs['critProb']
+                wcetRatio = kwargs['wcetRatio']
+                deadlineRatio = kwargs['deadlineRatio']
+                rate = kwargs['rate']
+                if numOfTasks>5:
+                    print('Warning!! To many tasks may slow down task generation!')
+            except KeyError:
+                print("Missing parameters for 'Iterative' method.")
+                exit()
+            Task.counter = 0
+            return self._genTaskIterative(numOfTasks, totalUtilization, critProb, wcetRatio, deadlineRatio, rate)
+
     
     def _genTaskUunifast(self, numOfTasks, totalUtilization, critProb, wcetRatio, deadlineRatio, rate) -> TaskSet:
         taskSet = TaskSet()
@@ -77,12 +95,17 @@ class TaskGen:
         for util in utilList:
             period = random.randint(100, 1000)
             wcetHI = int(ceil(util*period))
+            criticality = 'HI' if random.rand()>critProb else 'LO'
+            if criticality == 'HI':
+                wcetLO = int(ceil(wcetHI/wcetRatio))
+            else:
+                wcetLO = wcetHI
             taskSet.addTask(Task(
-                wcetLO = int(ceil(wcetHI/wcetRatio)),
+                wcetLO = wcetLO,
                 wcetHI = wcetHI,
                 period = period,
                 deadline = int(deadlineRatio*period),
-                criticality = 'HI' if random.rand()>critProb else 'LO',
+                criticality = criticality,
                 rate=rate
                 ))
         return taskSet
@@ -96,3 +119,72 @@ class TaskGen:
             tempUtil = nextUtil
         uList.append(tempUtil)
         return uList
+    
+    def _genTaskIterative(self, numOfTasks, totalUtilization, critProb, wcetRatio, deadlineRatio, rate):
+        taskSet = TaskSet()
+        taskSetData = self._getUtilizationsIterative(
+            targetAvgUtilization = totalUtilization,
+            wcetRatio = wcetRatio,
+            minTasks = numOfTasks,
+            probHi = critProb,
+            buffer = 0.025)
+
+        for utilLo, utilHi, crit in zip(taskSetData['utilLo'], taskSetData['utilHi'], taskSetData['crit']):
+            period = random.randint(100, 1000)
+            wcetHI = int(ceil(utilHi*period))
+            wcetLO = int(ceil(utilLo*period))
+            if crit:
+                criticality = 'HI'
+            else:
+                criticality = 'LO'
+            taskSet.addTask(Task(
+                wcetLO = wcetLO,
+                wcetHI = wcetHI,
+                period = period,
+                deadline = int(deadlineRatio*period),
+                criticality = criticality,
+                rate=rate
+                ))
+        return taskSet
+
+    def _getUtilizationsIterative(self, targetAvgUtilization, wcetRatio, minTasks=5, probHi=0.5, buffer=0.05):
+        utilLo = list()
+        utilHi = list()
+        crit = list()
+        utilAvg = 0
+        done = False
+        while not done:
+            if utilAvg < (targetAvgUtilization - buffer):
+                # Scaling to 80% because otherwise most tasksets will have only one task
+                util = random.rand()*0.8
+                utilHi.append(util)
+                critValue = random.rand()>probHi
+                if critValue:
+                    # HI Task
+                    utilLo.append(util*wcetRatio)
+                else:
+                    # LO Task
+                    utilLo.append(util)
+                utilAvg = average([sum(utilLo), sum(utilHi)])
+                crit.append(critValue)
+            elif utilAvg > (targetAvgUtilization + buffer):
+                # Fail
+                utilLo = list()
+                utilHi = list()
+                crit = list()
+                utilAvg = 0
+            else:
+                if len(utilLo) >= minTasks:
+                    done = True
+                else:
+                    # Fail
+                    utilLo = list()
+                    utilHi = list()
+                    crit = list()
+                    utilAvg = 0
+        taskSetData = dict()
+        taskSetData['utilLo'] = utilLo
+        taskSetData['utilHi'] = utilHi
+        taskSetData['crit'] = crit
+        taskSetData['utilAvg'] = utilAvg
+        return taskSetData
